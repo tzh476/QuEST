@@ -1,0 +1,47 @@
+name: QuEST BMI2 microbenchmark
+
+on:
+  push:
+    branches:
+      - bench/bmi2-quest-779
+  workflow_dispatch:
+
+jobs:
+  bmi2-microbench:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show CPU and compiler
+        run: |
+          uname -a
+          lscpu | grep -E 'Architecture|Model name|Flags'
+          c++ --version
+
+      - name: Configure QuEST headers
+        run: |
+          cmake -S . -B /tmp/quest_bench_build \
+            -DQUEST_ENABLE_OMP=OFF \
+            -DQUEST_ENABLE_NUMA=OFF
+
+      - name: Build fallback and BMI2 benchmark binaries
+        run: |
+          c++ -std=c++17 -O3 -DNDEBUG \
+            -I/tmp/quest_bench_build -I. \
+            benchmarks/quest_bmi2_microbench.cpp \
+            -o /tmp/quest_bmi2_fallback
+
+          c++ -std=c++17 -O3 -DNDEBUG -mbmi2 \
+            -I/tmp/quest_bench_build -I. \
+            benchmarks/quest_bmi2_microbench.cpp \
+            -o /tmp/quest_bmi2_bmi2
+
+      - name: Run benchmarks
+        run: |
+          if ! lscpu | grep -qw bmi2; then
+            echo "Runner CPU does not expose bmi2; skipping BMI2 benchmark."
+            exit 0
+          fi
+
+          /tmp/quest_bmi2_fallback 50000000 9
+          /tmp/quest_bmi2_bmi2 50000000 9
