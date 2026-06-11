@@ -1,0 +1,36 @@
+name: QuEST BMI2 baseline benchmark
+
+on:
+  push:
+    branches:
+      - ci/bmi2-baseline-bench
+  workflow_dispatch:
+
+jobs:
+  bmi2-baseline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show CPU and compiler
+        run: |
+          uname -a
+          lscpu | grep -E 'Architecture|Model name|Flags'
+          c++ --version
+
+      - name: Configure benchmark example
+        run: |
+          cmake -S . -B /tmp/quest_baseline_bench \
+            -DQUEST_BUILD_EXAMPLES=ON \
+            -DQUEST_ENABLE_OMP=OFF \
+            -DQUEST_ENABLE_NUMA=OFF
+
+      - name: Build benchmark example
+        run: |
+          cmake --build /tmp/quest_baseline_bench \
+            --target benchmark_bmi2_bitwise_cpp \
+            --config Release \
+            --parallel
+
+      - name: Run benchmark
+        run: /tmp/quest_baseline_bench/examples/automated/benchmark_bmi2_bitwise_cpp
